@@ -8,11 +8,10 @@
 
 char *rpols[] = {
     "lru",
-    "nfu",
     "clock",
     "random"
 };
-#define NUM_RPOLS 4
+#define NUM_RPOLS 3
 
 int
 main(int argc, char *argv[])

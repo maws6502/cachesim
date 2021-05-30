@@ -27,9 +27,9 @@ $ ./csim </path/to/trace> <cs> <bs> <assoc> <rpol>
 Cache parameters will be calculated as follows:
 
 * `cache_size = 256 * 2^cs bytes` (a value of 0 will create a cache of 256 bytes) 
-* `block_size = 4 * 2^cs bytes` (a value of 0 will create a block size of 4 bytes)
+* `block_size = 4 * 2^bs bytes` (a value of 0 will create a block size of 4 bytes)
 * `associativity = 2^assoc ways` (a value of 0 will create a direct mapped cache) 
-* `rpol = {lru, nfu, clock, random}` (corrosponding replacement policy is chosen)
+* `rpol = {lru, clock, random}` (corrosponding replacement policy is chosen)
 
 The program will run the trace through the given cache, and print output a valid JSON string containing the results of the run (except in the event of a failed assertion, error strrings are not JSON).
 

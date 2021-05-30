@@ -16,7 +16,6 @@
 enum ReplacementPolicy {
     RP_START,
     RP_LRU,
-    RP_NFU,
     RP_CLK,
     RP_RND,
 };
