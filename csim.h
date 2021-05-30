@@ -23,7 +23,7 @@ enum ReplacementPolicy {
 
 struct cache_line {
     uint64_t tag;
-    char valid;
+    int valid;
 };
 
 typedef struct cache_line CacheLine;

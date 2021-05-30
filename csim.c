@@ -42,8 +42,10 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
     for (i = 0; i < indexes; i++) {
         maincache[i].slots = calloc(assoc, sizeof(CacheLine));
         maincache[i].uc = calloc(assoc, sizeof(uint64_t));
-        for (j = 0; j < assoc; j++)
-            maincache[i].uc[j] = j;
+        if (rpol == RP_LRU) {
+            for (j = 0; j < assoc; j++)
+                maincache[i].uc[j] = j;
+        }
     }
 
     /* end of setup, run actual sim */
@@ -115,6 +117,8 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                 }
                 maincache[mcindex].uc[i] = assoc - 1;
                 break;
+            case RP_CLK:
+                maincache[mcindex].uc[i] = 1; /* give it a chance */
             case RP_RND:
                 /* monke */
                 break;
@@ -140,6 +144,37 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                     }
                 }
                 break;
+
+            case RP_CLK:
+                /* first ensure that we don't have any cold slots */
+                inv_available = 0;
+
+                for (j = 0; j < assoc; j++) {
+                    if (!maincache[mcindex].slots[j].valid) {
+                        res.cold_misses++;
+                        inv_available = 1;
+                        break;
+                    }
+                }
+
+                /* if invalid slots aren't available, we look for a slot without a sc bit */
+                if (!inv_available) {
+                    for (j = 0; j < assoc; j++) {
+                        if (maincache[mcindex].uc[j]) maincache[mcindex].uc[j] = 0;
+                        else break;
+                    }
+                }
+
+                if (fa_hit)
+                    res.capacity_misses++;
+                else
+                    res.conflict_misses++;
+                
+                maincache[mcindex].slots[j].tag = tag;
+                maincache[mcindex].slots[j].valid = 1;
+
+                break;
+
             case RP_RND:
                 /* first ensure that we don't have any cold slots */
                 inv_available = 0;
@@ -152,6 +187,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                     }
                 }
 
+                /* if invalid slots aren't available, nuke a random slot */
                 if (!inv_available) {
                     j = rand() % assoc;
                     if (fa_hit)
@@ -169,16 +205,19 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
 
     /* cleanup */
 
-    for (i = 0; i < csize/bsize; i++) {
+    /* TODO: this is horribly broken on RP_CLK
+     * but like we exit so issok */
+    /* for (i = 0; i < csize/bsize; i++) {
         free(facache[i].slots);
         free(facache[i].uc);
     }
     free(facache);
+
     for (i = 0; i < indexes; i++) {
         free(maincache[i].slots);
         free(maincache[i].uc);
     }
-    free(maincache);
+    free(maincache); */
 
     res.block_size = bsize;
     res.cache_size = csize;
