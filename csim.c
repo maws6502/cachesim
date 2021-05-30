@@ -9,7 +9,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
     /* simulate the given cache and a fully associative LRU cache
      * FA LRU is used for differentiating between conflict and capacity misses */
     uint64_t i, j, indexes, index_size, imask, tshift, tag, mcindex;
-    int fa_hit, mc_hit;
+    int fa_hit, mc_hit, inv_available;
     CacheIndex *maincache, *facache;
     struct sim_res res = {0, 0, 0, 0, 0};
 
@@ -115,6 +115,9 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                 }
                 maincache[mcindex].uc[i] = assoc - 1;
                 break;
+            case RP_RND:
+                /* monke */
+                break;
             }
         } else {
             switch (rpol) {
@@ -136,6 +139,29 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                         maincache[mcindex].slots[j].valid = 1;
                     }
                 }
+                break;
+            case RP_RND:
+                /* first ensure that we don't have any cold slots */
+                inv_available = 0;
+
+                for (j = 0; j < assoc; j++) {
+                    if (!maincache[mcindex].slots[j].valid) {
+                        res.cold_misses++;
+                        inv_available = 1;
+                        break;
+                    }
+                }
+
+                if (!inv_available) {
+                    j = rand() % assoc;
+                    if (fa_hit)
+                        res.capacity_misses++;
+                    else
+                        res.conflict_misses++;
+                }
+
+                maincache[mcindex].slots[j].valid = 1;
+                maincache[mcindex].slots[j].tag = tag;
                 break;
             }
         }

@@ -44,7 +44,9 @@ main(int argc, char *argv[])
         }
     }
     if (rpol == -1) goto error_out;
-    
+
+    srand(LIKE_70_OR_SOMETHING);
+
     trace_file = fopen(argv[1], "r");
     trace_root = malloc(sizeof(Trace)); /* this one's a throwaway, only for the next */
     t = trace_root;
