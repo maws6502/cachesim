@@ -206,8 +206,8 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
     /* cleanup */
 
     /* TODO: this is horribly broken on RP_CLK
-     * but like we exit so issok */
-    /* for (i = 0; i < csize/bsize; i++) {
+     * but like we exit so issok
+    for (i = 0; i < csize/bsize; i++) {
         free(facache[i].slots);
         free(facache[i].uc);
     }
@@ -217,7 +217,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
         free(maincache[i].slots);
         free(maincache[i].uc);
     }
-    free(maincache); */
+    free(maincache);  */
 
     res.block_size = bsize;
     res.cache_size = csize;
