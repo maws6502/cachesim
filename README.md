@@ -51,7 +51,7 @@ There also exists a program `csi` which iterates through a large range of parame
 ```
 $ ./csi </path/to/trace>
 ```
-`stdout` is the same as the order as the above program, but in csv form with trailing newlines after each iteration. Status is displayed on stderr. Order of status is `rpol`, `cs`, `bs`, `assoc`. `rpol` enumeration can be seen in `csim.h`.
+`stdout` stdout contains space separated values for each iteration. Please see `csi.c` for details. Status is displayed on stderr. Order of status is `rpol`, `cs`, `bs`, `assoc`. `rpol` enumeration can be seen in `csim.h`.
 
 ##### Example `stderr`:
 ```
