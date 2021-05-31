@@ -4,6 +4,10 @@ Aditya Goturu <aditya18203@mechyd.ac.in>
 
 18XJ1A0203
 
+Moriya Prateek Velagaleti <prateek18224@mechyd.ac.in>
+
+18XJ1A0224
+
 ### Compiling and running
 
 To compile, run:
