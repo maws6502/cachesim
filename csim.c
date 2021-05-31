@@ -1,3 +1,9 @@
+/* EE318 Assignment 2
+ * Aditya Goturu <aditya18203@mechyd.ac.in>
+ * 18XJ1A0203
+ * Moriya Prateek Velagaleti <prateek18224@mechyd.ac.in>
+ * 18XJ1A0224
+ */
 #include <stdlib.h>
 #include <assert.h>
 
@@ -11,7 +17,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
     uint64_t i, j, indexes, index_size, imask, tshift, tag, mcindex;
     int fa_hit, mc_hit, inv_available;
     CacheIndex *cache;
-    FA *faroot, *f, *r2, *r3, *faend;
+    FACacheNode *faroot, *f, *r1, *r2, *faend;
     struct sim_res res = {0, 0, 0, 0, 0};
 
     /* shift cache sizes to become real sizes
@@ -32,10 +38,10 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
 
     /* first, generate a fully associative cache */
 
-    faroot = calloc(1, sizeof(FA));
+    faroot = calloc(1, sizeof(FACacheNode));
     f = faroot;
     for (i = 0; i < csize/bsize; i++) {
-        f->next = calloc(1, sizeof(FA));
+        f->next = calloc(1, sizeof(FACacheNode));
         f->next->prev = f;
         f->next->next = NULL;
         f = f->next;
@@ -68,19 +74,19 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
         while (f = f->next) {
             if (f->tag == tag) {
                 fa_hit = 1;
-                if (f == faroot->next) break;
-                r2 = f->prev;
-                r3 = f->next;
+                if (f == faroot->next) break; /* early exit for node 1 ops */
+                r1 = f->prev;
+                r2 = f->next;
 
                 faroot->next->prev = f;
                 f->next = faroot->next;
                 faroot->next = f;
                 
-                r2->next = r3;
-                if(r3)
-                    r3->prev = r2;
+                r1->next = r2;
+                if(r2)
+                    r2->prev = r1;
                 else
-                    faend = r2;
+                    faend = r1;
                 
                 break;
             }
@@ -92,7 +98,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
             free(faend->next);
             faend->next = NULL;
             /* splice in our new boi at the beginning */
-            r2 = calloc(1, sizeof(FA));
+            r2 = calloc(1, sizeof(FACacheNode));
             r2->next = faroot->next;
             r2->prev = faroot;
             r2->tag = tag;
@@ -170,17 +176,21 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
 
                 /* if invalid slots aren't available, we look for a slot without a sc bit */
                 if (!inv_available) {
-                    for (j = 0; j < assoc; j++) {
-                        if (cache[mcindex].uc[j]) cache[mcindex].uc[j] = 0;
-                        else break;
-                    }
-
                     if (fa_hit)
                         res.conflict_misses++;
                     else
                         res.capacity_misses++;
+                    for (j = 0; j < assoc; j++) {
+                        if (cache[mcindex].uc[j]) {
+                            cache[mcindex].uc[j] = 0;
+                        } else {
+                            inv_available = 1; /* if unset, we replace j=0 */
+                            break;
+                        }
+                    }
                 }
 
+                if (!inv_available) j = 0; /* reset j for the full conflict scenario */
                 
                 cache[mcindex].slots[j].tag = tag;
                 cache[mcindex].slots[j].valid = 1;
@@ -222,6 +232,13 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
         free(cache[i].uc);
     }
     free(cache);
+
+    f = faroot;
+    while (f) {
+        r1 = f;
+        f = f->next;
+        free(r1);
+    }
 
     res.block_size = bsize;
     res.cache_size = csize;

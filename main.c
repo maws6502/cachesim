@@ -1,3 +1,9 @@
+/* EE318 Assignment 2
+ * Aditya Goturu <aditya18203@mechyd.ac.in>
+ * 18XJ1A0203
+ * Moriya Prateek Velagaleti <prateek18224@mechyd.ac.in>
+ * 18XJ1A0224
+ */
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -60,6 +66,8 @@ main(int argc, char *argv[])
         t = t->next;
         t->next = NULL; /* you never know */
     }
+
+    fclose(trace_file);
 
     sres = csim(trace_root, cs, bs, assoc, rpol);
 

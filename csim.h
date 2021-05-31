@@ -1,4 +1,9 @@
-
+/* EE318 Assignment 2
+ * Aditya Goturu <aditya18203@mechyd.ac.in>
+ * 18XJ1A0203
+ * Moriya Prateek Velagaleti <prateek18224@mechyd.ac.in>
+ * 18XJ1A0224
+ */
 #ifndef _STDINT_H
 #include <stdint.h>
 #endif
@@ -44,7 +49,7 @@ struct facache_entry {
     struct facache_entry *next;
     struct facache_entry *prev;
 };
-typedef struct facache_entry FA;
+typedef struct facache_entry FACacheNode;
 
 struct sim_res {
     unsigned long accesses;
