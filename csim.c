@@ -243,6 +243,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
     res.block_size = bsize;
     res.cache_size = csize;
     res.associativity = assoc;
+    res.replacement_policy = rpol;
 
     return res;
 }

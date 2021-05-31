@@ -60,6 +60,7 @@ struct sim_res {
     unsigned long cache_size;
     unsigned long block_size;
     unsigned long associativity;
+    int replacement_policy;
 };
 
 struct sim_res      csim        (Trace *,       uint64_t,      uint64_t,      uint64_t,      int     );

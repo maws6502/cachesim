@@ -1,15 +1,19 @@
 CC=clang
 CFLAGS=-I. -Wall -Wno-parentheses --std=c89 # fight me
 DEPS = csim.h
-OBJ = csim.o main.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-csim: $(OBJ)
+all: csim csi
+
+csim: main.o csim.o
+	$(CC) -o $@ $^ $(CFLAGS)
+
+csi: csi.o csim.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
 
 clean:
-	rm -f *.o csim
+	rm -f *.o csim csi
