@@ -31,15 +31,20 @@ struct cache_index {
     CacheLine *slots;
     uint64_t *uc;
 };
-
 typedef struct cache_index CacheIndex;
 
 struct trace {
         uint64_t addr;     /* assuming all the trace files are 64 bit addresses at max */
         struct trace *next;     /* linked list, seemed appropriate somehow */
 };
-
 typedef struct trace Trace;
+
+struct facache_entry {
+    uint64_t tag;
+    struct facache_entry *next;
+    struct facache_entry *prev;
+};
+typedef struct facache_entry FA;
 
 struct sim_res {
     unsigned long accesses;

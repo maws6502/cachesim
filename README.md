@@ -31,7 +31,7 @@ Cache parameters will be calculated as follows:
 * `associativity = 2^assoc ways` (a value of 0 will create a direct mapped cache) 
 * `rpol = {lru, clock, random}` (corrosponding replacement policy is chosen)
 
-The program will run the trace through the given cache, and print output a valid JSON string containing the results of the run (except in the event of a failed assertion, error strrings are not JSON).
+The program will run the trace through the given cache, and print output a valid JSON string containing the results of the run (except in the event of a failed assertion, error strrings are not JSON). There is no trailing newline after the JSON string.
 
 #### Example
 

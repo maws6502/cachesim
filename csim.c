@@ -10,7 +10,8 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
      * FA LRU is used for differentiating between conflict and capacity misses */
     uint64_t i, j, indexes, index_size, imask, tshift, tag, mcindex;
     int fa_hit, mc_hit, inv_available;
-    CacheIndex *maincache, *facache;
+    CacheIndex *cache;
+    FA *faroot, *f, *r2, *r3, *faend;
     struct sim_res res = {0, 0, 0, 0, 0};
 
     /* shift cache sizes to become real sizes
@@ -30,21 +31,25 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
     assert(csize > index_size);
 
     /* first, generate a fully associative cache */
-    facache = calloc(csize/bsize, sizeof(CacheIndex));
+
+    faroot = calloc(1, sizeof(FA));
+    f = faroot;
     for (i = 0; i < csize/bsize; i++) {
-        facache[i].slots = calloc(1, sizeof(CacheLine));
-        facache[i].uc = calloc(1, sizeof(uint64_t));
-        facache[i].uc[0] = i;
+        f->next = calloc(1, sizeof(FA));
+        f->next->prev = f;
+        f->next->next = NULL;
+        f = f->next;
     }
+    faend = f;
 
     /* then, generate the actual cache */
-    maincache = calloc(indexes, sizeof(CacheIndex));
+    cache = calloc(indexes, sizeof(CacheIndex));
     for (i = 0; i < indexes; i++) {
-        maincache[i].slots = calloc(assoc, sizeof(CacheLine));
-        maincache[i].uc = calloc(assoc, sizeof(uint64_t));
+        cache[i].slots = calloc(assoc, sizeof(CacheLine));
+        cache[i].uc = calloc(assoc, sizeof(uint64_t));
         if (rpol == RP_LRU) {
             for (j = 0; j < assoc; j++)
-                maincache[i].uc[j] = j;
+                cache[i].uc[j] = j;
         }
     }
 
@@ -56,46 +61,52 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
         tag = t->addr >> tshift;
 
         /* first, check FA LRU, and update it */
-        /* step 1: search. if hit is also MRU, no need to LRupdate */
+        /* step 1: search. linked list things i think */
         fa_hit = 0;
-        for (i = 0; i < csize/bsize; i++) {
-            if (facache[i].slots[0].valid && facache[i].slots[0].tag == tag) {
+        f = faroot;
+
+        while (f = f->next) {
+            if (f->tag == tag) {
                 fa_hit = 1;
+                if (f == faroot->next) break;
+                r2 = f->prev;
+                r3 = f->next;
+
+                faroot->next->prev = f;
+                f->next = faroot->next;
+                faroot->next = f;
+                
+                r2->next = r3;
+                if(r3)
+                    r3->prev = r2;
+                else
+                    faend = r2;
+                
                 break;
             }
         }
-        /* on hit, fa_hit = 1 and i contains the index of the hit
-         * otherrwise, fa_hit = 0 
-         * in event of a hit, we need to decrement all counters
-         * that are greater than the counter we have on index
-         * then update the index to the highest value
-         * if event of a miss, we need to decrement all nonzero values
-         * and then add our tag to the zero index, and update it to MRU
-         */
-        if (fa_hit) {
-            for (j = 0; j < csize/bsize; j++) {
-                if(facache[j].uc[0] > facache[i].uc[0])
-                    facache[j].uc[0]--;
-            }
-            facache[i].uc[0] = csize/bsize - 1;
-        } else {
-            for (j = 0; j < csize/bsize; j++) {
-                if (facache[j].uc[0]) {
-                    facache[j].uc[0]--;
-                } else {
-                    facache[j].uc[0] = csize/bsize - 1;
-                    facache[j].slots[0].valid = 1;
-                    facache[j].slots[0].tag = tag;
-                }
-            }
+
+        if (!fa_hit) {
+            /* free the end */
+            faend = faend->prev;
+            free(faend->next);
+            faend->next = NULL;
+            /* splice in our new boi at the beginning */
+            r2 = calloc(1, sizeof(FA));
+            r2->next = faroot->next;
+            r2->prev = faroot;
+            r2->tag = tag;
+            faroot->next->prev = r2;
+            faroot->next = r2;
         }
+
 
         /* step 2: check our actual cache */
         mc_hit = 0;
         mcindex = tag & imask;
         for (i = 0; i < assoc; i++) {
-            if (maincache[mcindex].slots[i].valid && 
-                    maincache[mcindex].slots[i].tag == tag) {
+            if (cache[mcindex].slots[i].valid && 
+                    cache[mcindex].slots[i].tag == tag) {
                 mc_hit = 1;
                 break;
             }
@@ -112,13 +123,13 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
             switch (rpol) {
             case RP_LRU:
                 for (j = 0; j < assoc; j++) {
-                if(maincache[mcindex].uc[j] > maincache[mcindex].uc[i])
-                    maincache[mcindex].uc[j]--;
+                if(cache[mcindex].uc[j] > cache[mcindex].uc[i])
+                    cache[mcindex].uc[j]--;
                 }
-                maincache[mcindex].uc[i] = assoc - 1;
+                cache[mcindex].uc[i] = assoc - 1;
                 break;
             case RP_CLK:
-                maincache[mcindex].uc[i] = 1; /* give it a chance */
+                cache[mcindex].uc[i] = 1; /* give it a chance */
             case RP_RND:
                 /* monke */
                 break;
@@ -127,20 +138,20 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
             switch (rpol) {
             case RP_LRU:
                 for (j = 0; j < assoc; j++) {
-                    if (maincache[mcindex].uc[j]) {
-                        maincache[mcindex].uc[j]--;
+                    if (cache[mcindex].uc[j]) {
+                        cache[mcindex].uc[j]--;
                     } else {
-                        maincache[mcindex].uc[j] = assoc - 1;
-                        maincache[mcindex].slots[j].tag = tag;
-                        if (maincache[mcindex].slots[j].valid) {
+                        cache[mcindex].uc[j] = assoc - 1;
+                        cache[mcindex].slots[j].tag = tag;
+                        if (cache[mcindex].slots[j].valid) {
                             if (fa_hit)
-                                res.capacity_misses++;
-                            else
                                 res.conflict_misses++;
+                            else
+                                res.capacity_misses++;
                         } else {
                             res.cold_misses++;
                         }
-                        maincache[mcindex].slots[j].valid = 1;
+                        cache[mcindex].slots[j].valid = 1;
                     }
                 }
                 break;
@@ -150,7 +161,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                 inv_available = 0;
 
                 for (j = 0; j < assoc; j++) {
-                    if (!maincache[mcindex].slots[j].valid) {
+                    if (!cache[mcindex].slots[j].valid) {
                         res.cold_misses++;
                         inv_available = 1;
                         break;
@@ -160,18 +171,19 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                 /* if invalid slots aren't available, we look for a slot without a sc bit */
                 if (!inv_available) {
                     for (j = 0; j < assoc; j++) {
-                        if (maincache[mcindex].uc[j]) maincache[mcindex].uc[j] = 0;
+                        if (cache[mcindex].uc[j]) cache[mcindex].uc[j] = 0;
                         else break;
                     }
+
+                    if (fa_hit)
+                        res.conflict_misses++;
+                    else
+                        res.capacity_misses++;
                 }
 
-                if (fa_hit)
-                    res.capacity_misses++;
-                else
-                    res.conflict_misses++;
                 
-                maincache[mcindex].slots[j].tag = tag;
-                maincache[mcindex].slots[j].valid = 1;
+                cache[mcindex].slots[j].tag = tag;
+                cache[mcindex].slots[j].valid = 1;
 
                 break;
 
@@ -180,7 +192,7 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                 inv_available = 0;
 
                 for (j = 0; j < assoc; j++) {
-                    if (!maincache[mcindex].slots[j].valid) {
+                    if (!cache[mcindex].slots[j].valid) {
                         res.cold_misses++;
                         inv_available = 1;
                         break;
@@ -191,13 +203,13 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
                 if (!inv_available) {
                     j = rand() % assoc;
                     if (fa_hit)
-                        res.capacity_misses++;
-                    else
                         res.conflict_misses++;
+                    else
+                        res.capacity_misses++;
                 }
 
-                maincache[mcindex].slots[j].valid = 1;
-                maincache[mcindex].slots[j].tag = tag;
+                cache[mcindex].slots[j].valid = 1;
+                cache[mcindex].slots[j].tag = tag;
                 break;
             }
         }
@@ -205,19 +217,11 @@ csim(Trace *t, uint64_t csize, uint64_t bsize, uint64_t assoc, int rpol)
 
     /* cleanup */
 
-    /* TODO: this is horribly broken on RP_CLK
-     * but like we exit so issok
-    for (i = 0; i < csize/bsize; i++) {
-        free(facache[i].slots);
-        free(facache[i].uc);
-    }
-    free(facache);
-
     for (i = 0; i < indexes; i++) {
-        free(maincache[i].slots);
-        free(maincache[i].uc);
+        free(cache[i].slots);
+        free(cache[i].uc);
     }
-    free(maincache);  */
+    free(cache);
 
     res.block_size = bsize;
     res.cache_size = csize;
